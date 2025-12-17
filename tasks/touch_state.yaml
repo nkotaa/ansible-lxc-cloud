@@ -1,0 +1,42 @@
+- when: state == "stopped"
+  block:
+    - name: Flush handlers in case this is a new container
+      ansible.builtin.meta: flush_handlers
+    - name: Stop container
+      community.general.lxc_container:
+        name: "{{ container_name }}"
+        state: stopped
+        lxc_path: "{{ lxc_path }}"
+
+- name: Restart updated container if it was originally running, otherwise leave it stopped
+  block:
+    - when: state == "updated" and is_container_config_updated
+      community.general.lxc_container:
+        name: "{{ container_name }}"
+        state: stopped
+        lxc_path: "{{ lxc_path }}"
+      vars:
+        is_container_config_updated: "{{ (_net_intf is changed or _mount_conf is changed) }}"
+      register: updated_container
+    - when: updated_container is changed
+      ansible.builtin.command:
+        argv:
+          - "lxc-{{ rootless | ansible.builtin.ternary('unpriv-', '') }}start"
+          - --lxcpath
+          - "{{ lxc_path }}"
+          - "{{ container_name }}"
+
+- when: state == "started"
+  ansible.builtin.command:
+    argv:
+      - "lxc-{{ rootless | ansible.builtin.ternary('unpriv-', '') }}start"
+      - --lxcpath
+      - "{{ lxc_path }}"
+      - "{{ container_name }}"
+  register: _lxc_start_res
+  failed_when:
+    - _lxc_start_res.rc != 0
+    - '"Container is already running" not in _lxc_start_res.stderr'
+  changed_when:
+    - _lxc_start_res is changed
+    - '"Container is already running" not in _lxc_start_res.stderr'
