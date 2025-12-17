@@ -1,0 +1,68 @@
+- name: Include all .conf files from config.d
+  block:
+    - ansible.builtin.file:
+        path: "{{ container_config }}.d"
+        state: directory
+        mode: '0750'
+      register: _conf_d
+    - ansible.builtin.lineinfile:
+        path: "{{ container_config }}"
+        line: "lxc.include = {{ _conf_d.path }}/"
+        state: present
+
+- name: Configure container network interfaces
+  ansible.builtin.template:
+    src: net-idx.conf.j2
+    dest: "{{ _conf_d.path }}/net-{{ idx }}.conf"
+    mode: '0644'
+  loop: "{{ networks }}"
+  loop_control:
+    index_var: idx
+  vars:
+    _net_type: "{{ item.type | default('veth') }}"
+    _net_link: "{{ item.link }}"
+    _net_ipv4_address: "{{ item.ipv4_address | default(omit) }}"
+    _net_ipv4_gateway: "{{ item.ipv4_gateway | default(omit) }}"
+  register: _net_intf
+
+- name: Configure host mounts
+  ansible.builtin.template:
+    src: mount-entries.conf.j2
+    dest: "{{ _conf_d.path }}/mount-entries.conf"
+  notify: Configure container access to host mounts
+  register: _mount_conf
+  changed_when: _mount_conf is changed and _mount_conf.size > 0
+
+- ansible.builtin.set_fact:
+    idmap_mounts: "{{ idmap_mounts + container_idmap_mounts }}"
+    idmap_ro_mounts: "{{ idmap_ro_mounts + container_idmap_ro_mounts }}"
+  vars:
+    idmap_mounts: []
+    idmap_ro_mounts: []
+    container_idmap_mounts: "{{ rw_mounts | map('combine', {'idmap': container_idmap}) }}"
+    container_idmap_ro_mounts: "{{ ro_mounts | map('combine', {'idmap': container_idmap}) }}"
+    rw_mounts: "{{ container_host_mounts | ansible.builtin.difference(ro_mounts) }}"
+    ro_mounts: "{{ container_host_mounts | selectattr('ro', 'defined') | selectattr('ro') }}"
+
+- name: Enforce storage limit
+  become: true
+  become_user: root
+  block:
+    - when: container_bdev == "zfs"
+      community.general.zfs:
+        name: "{{ bdev_root }}/{{ container_name }}"
+        state: present
+        extra_zfs_properties:
+          quota: "{{ instance_disk_size }}"
+  rescue:
+    - ansible.builtin.debug:
+        msg: "Unable to set instance storage limit."
+
+- name: Container system behaviour
+  ansible.builtin.template:
+    src: system.conf.j2
+    dest: "{{ _conf_d.path }}/system.conf"
+  register: _system_conf
+  vars:
+    console_logfile: "{{ container_console_logfile | default(template_destpath + '.console-log') }}"
+    _tags: "{{ instance_tags | default([]) }}"
