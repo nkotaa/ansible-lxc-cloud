@@ -1,0 +1,122 @@
+- name: Create group writeable container directory
+  when: is_undefined_container
+  ansible.builtin.file:
+    path: "{{ container_path }}"
+    state: directory
+    mode: '0770'
+
+- name: Mock zfs backing store
+  when: is_zfs_rootless and is_undefined_container
+  block:
+    - name: Create rootfs dataset
+      community.general.zfs:
+        name: "{{ bdev_root }}/{{ container_name }}"
+        state: present
+        extra_zfs_properties:
+          mountpoint: "{{ rootfs_path }}"
+      register: zfs_rootfs_res
+      failed_when:
+        - zfs_rootfs_res.rc | default(0) != 0
+        - '"filesystem successfully created" not in zfs_rootfs_res.stderr'
+    - name: Create rootfs directory with user permissions before mounting
+      ansible.builtin.file:
+        path: "{{ rootfs_path }}"
+        state: directory
+
+- name: Stop container
+  when: is_deprovisioned_container
+  community.general.lxc_container:
+    name: "{{ container_name }}"
+    state: stopped
+    lxc_path: "{{ lxc_path }}"
+
+- name: Manage mount for unprivileged user
+  when: is_zfs_rootless
+  ansible.builtin.command:
+    argv:
+      - zfs
+      - "{{ (state == 'absent') | ansible.builtin.ternary('un','') }}mount"
+      - "{{ bdev_root }}/{{ container_name }}"
+  register: _zfs_mount
+  changed_when:
+    - _zfs_mount.rc == 0
+  failed_when:
+    - _zfs_mount.rc != 0
+    - '"filesystem already mounted" not in _zfs_mount.stderr'
+    - '"not currently mounted" not in _zfs_mount.stderr'
+  become: true
+  become_user: root
+
+- name: Undefine container
+  when: state == "absent"
+  community.general.lxc_container:
+    name: "{{ container_name }}"
+    state: absent
+    lxc_path: "{{ lxc_path }}"
+  register: container_destroy
+
+- name: End play for deprovisioned hosts
+  when: container_destroy.lxc_container.state | default('present') == 'absent'
+  ansible.builtin.meta: end_host
+
+- block:
+    - name: Set container idmap
+      ansible.builtin.set_fact:
+        container_idmap: "{{ container_idmaps[container_name] | default(available_uids[idx | int]) }}"
+      vars:
+        idx: "{{ undefined_containers | ansible.utils.index_of('eq', container_name) }}"
+  rescue:
+    - ansible.builtin.fail:
+        msg: Failed to allocate idmap, check if more than max_container_count containers defined.
+
+# UID mapping must be defined at container creation time for
+# rootfs to be created with mapped uid/gid
+- name: Use templated configuration file for rootfs creation
+  when: is_undefined_container
+  ansible.builtin.template:
+    src: rootfs.conf.j2
+    dest: "{{ container_path }}/temp-config"
+    force: false
+  register: creation_config
+  vars:
+    idmap: "{{ container_idmap }}"
+    acl_paths: "{{ _lxc_paths_no_x }}"
+    container_rootfs_dataset: "{{ bdev_root }}/{{ container_name }}"
+
+- name: Define container image
+  when: is_undefined_container
+  community.general.lxc_container:
+    name: "{{ container_name }}"
+    state: stopped
+    backing_store: "{{ (is_zfs_rootless) | ansible.builtin.ternary('dir', container_bdev) }}"
+    zfs_root: "{{ _zfs_root }}"
+    lxc_path: "{{ lxc_path }}"
+    template: download
+    template_options: "--dist {{ instance_distro }} --release {{ instance_release }} --arch {{ instance_arch }} --variant cloud"
+    config: "{{ creation_config.dest }}"
+  vars:
+    _zfs_root: "{{ (is_zfs_rootless or container_bdev != 'zfs') | ansible.builtin.ternary(omit, bdev_root) }}"
+    instance_release: "{{ instance.release | default(default_release[instance_distro]) }}"
+    instance_arch: "{{ instance.arch | default('amd64') }}"
+  async: 180
+  poll: 0
+  register: new_container
+
+- name: Grant container root ACL 'x' access to lxcpath
+  throttle: 1
+  ansible.posix.acl:
+    path: "{{ item }}"
+    etype: user
+    entity: "{{ container_idmap }}"
+    permissions: x
+    state: present
+  loop: "{{ _lxc_paths_no_x }}"
+
+- name: Verify idmap variable has been properly set
+  block:
+    - ansible.builtin.stat:
+        path: "{{ rootfs_path }}"
+      register: rootfs_st
+    - ansible.builtin.assert:
+        that: rootfs_st.stat.uid == container_idmap | int
+        fail_msg: "Actual container root idmap is not {{ container_idmap }} as gathered by Ansible."
