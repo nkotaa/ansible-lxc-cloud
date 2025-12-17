@@ -1,0 +1,17 @@
+#cloud-config-archive
+# Role required base image customizations
+
+- type: "text/cloud-boothook"
+  content: |
+    #!/bin/sh
+
+    ## Install openssh-server-pam and enable PAM authentication for sshd
+    ## service to be started allowing password-locked users to log in
+    cloud-init-per instance instance-ssh-access /bin/false && exit 0
+    echo "nameserver 1.1.1.1" > /etc/resolv.conf
+    apk add --no-cache openssh-server-pam
+    echo "UsePAM yes" > /etc/ssh/sshd_config.d/30-cloud-init-pam.conf
+    rc-update add sshd default
+
+    cloud-init-per instance bash-container-module-support /bin/false && exit 0
+    apk add --no-cache bash
