@@ -1,0 +1,7 @@
+lxc.console.logfile = {{ console_logfile }}
+{% for tag in _tags %}
+lxc.group = {{ tag }}
+{% if tag == "onboot" %}
+lxc.start.auto = 0
+{% endif %}
+{% endfor %}
