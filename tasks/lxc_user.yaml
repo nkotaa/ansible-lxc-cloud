@@ -1,0 +1,49 @@
+- name: Ensure user exists, creating them as a system user otherwise
+  ansible.builtin.user:
+    name: "{{ lxc_user }}"
+    state: present
+    system: true
+    create_home: false
+  register: lxc_user_res
+
+- name: Configure lxc system user
+  when: lxc_user_res.system | default(false)
+  block:
+    - ansible.builtin.user:
+        name: "{{ lxc_user_res.name }}"
+        shell: /usr/sbin/nologin
+        home: "{{ lxcpath }}"
+    - ansible.posix.acl:
+        path: "{{ lxcpath }}"
+        entity: "{{ lxc_user_res.group }}"
+        etype: group
+        permissions: rwx
+        state: present
+
+- name: Permit unprivileged user to autostart containers on boot
+  when: lxc_user_res.name != "root"
+  ansible.builtin.command:
+    cmd: "loginctl enable-linger {{ lxc_user }}"
+  changed_when: false
+
+# TODO
+#  community.general.zfs_delegate_admin:
+
+- name: Permit unprivileged user to create veth interfaces on host
+  when: lxc_user_res.name != "root"
+  ansible.builtin.lineinfile:
+    path: /etc/lxc/lxc-usernet
+    create: true
+    regexp: "^{{ lxc_user }} veth {{ item }}"
+    line: "{{ lxc_user }} veth {{ item }} {{ max_container_count }}"
+  loop: "{{ network_links | default([]) }}"
+
+- name: Delegate subordinate UID and GID ranges to lxc user
+  become: true
+  ansible.builtin.lineinfile:
+    path: "/etc/{{ item }}"
+    regexp: "^{{ lxc_user }}"
+    line: "{{ lxc_user }}:{{ idmap_start }}:{{ 65536 * max_container_count }}"
+  loop:
+    - subuid
+    - subgid
