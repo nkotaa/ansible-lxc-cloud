@@ -1,0 +1,16 @@
+- name: Install module and role requirements
+  become: true
+  ansible.builtin.apt:
+    name:
+      - lxc
+      - python3-lxc
+      - acl
+
+- ansible.builtin.import_tasks: lxc_user.yaml
+  become: true
+
+- name: Save network and storage backend variables on controller
+  delegate_to: localhost
+  ansible.builtin.template:
+    src: network_storage_backend.yaml.j2
+    dest: "{{ role_path }}/vars/{{ inventory_hostname }}.yaml"
