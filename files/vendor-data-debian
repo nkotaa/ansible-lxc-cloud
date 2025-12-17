@@ -1,0 +1,14 @@
+#cloud-config-archive
+# Minimally required customizations to get instance working with Ansible.
+#This is assumed to be provided even if a custom IMDS is used.#}
+
+- type: "text/cloud-boothook"
+  content: |
+    #!/bin/sh
+
+    cloud-init-per instance instance-ssh-access /bin/false && exit 0
+    echo "exit 101" > /usr/sbin/policy-rc.d
+    chmod +x /usr/sbin/policy-rc.d
+    apt-get update && apt-get install -y --no-install-recommends openssh-server
+    rm -rf /var/lib/apt/lists/*
+    rm -f /usr/sbin/policy-rc.d
