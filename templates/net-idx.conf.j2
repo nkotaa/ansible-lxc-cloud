@@ -1,0 +1,10 @@
+lxc.net.{{ idx }}.type = {{ _net_type }}
+lxc.net.{{ idx }}.flags = up
+lxc.net.{{ idx }}.link = {{ _net_link }}
+lxc.net.{{ idx }}.name = eth{{ idx }}_lxc
+{% if item.ipv4_address is defined %}
+lxc.net.{{ idx }}.ipv4.address = {{ _net_ipv4_address }}
+{% endif %}
+{% if item.ipv4_gateway is defined %}
+lxc.net.{{ idx }}.ipv4.gateway = {{ _net_ipv4_gateway }}
+{% endif %}
