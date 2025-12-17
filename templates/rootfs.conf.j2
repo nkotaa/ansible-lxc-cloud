@@ -1,0 +1,13 @@
+lxc.idmap = u 0 {{ idmap }} 65536
+lxc.idmap = g 0 {{ idmap }} 65536
+{% if rootless %}
+lxc.apparmor.profile = unconfined
+{% endif %}
+
+lxc.hook.version = 1
+{% if acl_paths != [] %}
+lxc.hook.destroy = /usr/bin/setfacl --remove u:{{ idmap }} {{ acl_paths | join(' ') }}
+{% endif %}
+{% if is_zfs_rootless %}
+lxc.hook.destroy = /usr/bin/zfs destroy {{ container_rootfs_dataset }}
+{% endif %}
