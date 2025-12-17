@@ -1,0 +1,60 @@
+# Ansible documentation: "Handlers are executed in the order they are defined
+# in the handlers section, not in the order listed in the notify statement."
+
+- name: Change ownership of host mounts
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: "{{ item.idmap }}"
+    group: "{{ item.idmap }}"
+    state: directory
+  become: true
+  loop: "{{ idmap_mounts }}"
+  listen: "Configure container access to host mounts"
+
+- name: Grant container root ACL read access to host mounts
+  ansible.posix.acl:
+    path: "{{ item.path }}"
+    etype: user
+    entity: "{{ item.idmap }}"
+    permissions: rX
+    recursive: true
+    state: present
+  loop: "{{ idmap_ro_mounts }}"
+  listen: "Configure container access to host mounts"
+
+- name: Block waiting on cloud-init to complete
+  ansible.builtin.command:
+    argv:
+      - "lxc-{{ rootless | ansible.builtin.ternary('unpriv-', '') }}attach"
+      - --lxcpath
+      - "{{ lxc_path }}"
+      - "{{ item }}"
+      - --
+      - /bin/sh
+      - -c
+      - cloud-init status --wait
+  register: cloud_init_status
+  failed_when: "'status: done' not in cloud_init_status.stdout"
+  loop: "{{ cloud_init_containers }}"
+
+- name: Get all restartable instances
+  ansible.builtin.command:
+    cmd: "lxc-ls --lxcpath {{ lxc_path }} --running --groups cloud-init-boot --line"
+  register: provisioned_containers_cmd
+  changed_when: false
+  listen: "Restart temporary config instances"
+
+- name: Stop updated instances
+  ansible.builtin.command:
+    cmd: "lxc-autostart --lxcpath {{ lxc_path }} --shutdown --ignore-auto --groups cloud-init-boot"
+  listen: "Restart temporary config instances"
+
+- name: Start updated instances
+  ansible.builtin.command:
+    argv:
+      - "lxc-{{ rootless | ansible.builtin.ternary('unpriv-', '') }}start"
+      - --lxcpath
+      - "{{ lxc_path }}"
+      - "{{ item }}"
+  loop: "{{ provisioned_containers_cmd.stdout_lines }}"
+  listen: "Restart temporary config instances"
