@@ -1,0 +1,37 @@
+- name: Gather runtime facts, applying results to all hosts in the batch
+  ansible.builtin.import_tasks:
+    file: gather_runtime_facts.yaml
+  run_once: true
+
+- name: End play for already absent hosts
+  when: state == "absent" and container_name not in defined_containers
+  ansible.builtin.meta: end_host
+
+- ansible.builtin.import_tasks:
+    file: manage_rootfs.yaml
+  vars:
+    container_path: "{{ lxc_path }}/{{ container_name }}"
+    rootfs_path: "{{ container_path }}/rootfs"
+    is_zfs_rootless: "{{ (container_bdev == 'zfs' and rootless) }}"
+    instance_distro: "{{ instance.distro }}"
+
+- name: Update container resources and behaviour
+  when: state == "updated" or is_undefined_container
+  ansible.builtin.import_tasks:
+    file: config_container.yaml
+  vars:
+    container_config: "{{ lxc_path }}/{{ container_name }}/config"
+    container_host_mounts: "{{ host_mounts | default([]) }}"
+    instance_disk_size: "{{ instance.disk_size | default('1G') }}"
+
+- when: is_undefined_container
+  ansible.builtin.import_tasks:
+    file: cloud_init_boot.yaml
+  vars:
+    cloud_init_boot_conf: "{{ _cloud_init_boot_conf.dest }}"
+    is_nocloud_managed: "{{ (nocloud_seedfrom | ansible.builtin.urlsplit('scheme')) == 'file' }}"
+    seedfrom_path: "{{ nocloud_seedfrom | ansible.builtin.urlsplit('path') }}"
+
+- name: Ensure instance state
+  ansible.builtin.import_tasks:
+    file: touch_state.yaml
