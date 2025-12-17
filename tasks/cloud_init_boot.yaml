@@ -1,0 +1,90 @@
+# Note lxc-execute triggers container hooks as well
+
+# A container's first boot is always a cloud-init boot, but a cloud-init boot
+# need not be a container's first boot
+- when: new_container.ansible_job_id is defined
+  name: Wait for container to be defined
+  ansible.builtin.async_status:
+    jid: "{{ new_container.ansible_job_id }}"
+  register: new_container_res
+  until: new_container_res is finished
+  retries: 5
+  delay: 15
+
+- name: Modify base image for cloud-init support
+  ansible.builtin.command:
+    argv:
+      - lxc-execute
+      - --lxcpath
+      - "{{ lxc_path }}"
+      - "{{ container_name }}"
+      - --
+      - /bin/sh
+      - -c
+      - |
+        rm -f /etc/cloud/cloud-init.disabled &&
+        cat << EOF > /etc/cloud/cloud.cfg.d/nocloud-seed.cfg
+        datasource_list: [NoCloud, None]
+        datasource:
+          NoCloud:
+            seedfrom: {{ nocloud_seedfrom }}
+        EOF
+  register: cloud_init_touch
+
+- name: Provide network config
+  when: is_undefined_container and instance.network_config is defined
+  ansible.builtin.command:
+    argv:
+      - lxc-execute
+      - --lxcpath
+      - "{{ lxc_path }}"
+      - "{{ container_name }}"
+      - --
+      - /bin/sh
+      - -c
+      - |
+        cat << EOF > /etc/cloud/cloud.cfg.d/10-netconf.cfg
+        network:
+        {{ instance.network_config | indent(2, first=True) }}
+        EOF
+
+- name: Seed NoCloud runtime data from controller
+  when: cloud_init_touch is changed and is_nocloud_managed
+  ansible.builtin.command:
+    argv:
+      - lxc-execute
+      - --lxcpath
+      - "{{ lxc_path }}"
+      - "{{ container_name }}"
+      - --
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p {{ seedfrom_path }} &&
+        echo '{{ _user_data }}' > {{ seedfrom_path }}/user-data &&
+        echo '{{ _meta_data }}' > {{ seedfrom_path }}/meta-data &&
+        echo '{{ _vendor_data }}' > {{ seedfrom_path }}/vendor-data
+  vars:
+    _user_data: "{{ instance.user_data | default('#cloud-config') }}"
+    _meta_data: "instance-id: {{ instance_id }}"
+    _vendor_data: "{{ lookup('ansible.builtin.file', 'vendor-data-' + instance_distro) }}"
+    instance_id: "{{ lookup('community.general.random_string', length=12, min_lower=8, min_numeric=4, ignore_similar_chars=true, upper=false, special=false) }}"
+    instance_distro: "{{ instance.distro }}"
+
+- name: cloud-init boot
+  ansible.builtin.command:
+    argv:
+      - "lxc-{{ rootless | ansible.builtin.ternary('unpriv-', '') }}start"
+      - --lxcpath
+      - "{{ lxc_path }}"
+      - "{{ container_name }}"
+  register: _lxc_start_res
+  changed_when:
+    - _lxc_start_res is changed
+    - new_container_res is changed
+  notify: Block waiting on cloud-init to complete
+
+- ansible.builtin.set_fact:
+    cloud_init_containers: "{{ cloud_init_containers + [container_name] }}"
+  vars:
+    cloud_init_containers: []
