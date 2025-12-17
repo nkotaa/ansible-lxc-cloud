@@ -1,0 +1,121 @@
+- name: Get effective user name
+  block:
+    - ansible.builtin.setup:
+        gather_subset:
+          - "!all"
+          - "!min"
+          - user
+    # Required for lxc-start commands throughout parent task file
+    - ansible.builtin.set_fact:
+        rootless: "{{ (ansible_user_id != 'root') }}"
+
+- name: Fallback system config lxcpath
+  when: lxc_path is not defined
+  block:
+    - ansible.builtin.command: lxc-config lxc.lxcpath
+      changed_when: false
+      register: lxcpath_cmd
+    - ansible.builtin.set_fact:
+        lxc_path: "{{ lxcpath_cmd.stdout }}"
+    - ansible.builtin.debug:
+        msg: "Variable lxc_path unspecified, fallback to system config '{{ lxc_path }}'."
+
+- name: Confirm lxcpath is user writeable
+  block:
+    - ansible.builtin.stat:
+        path: "{{ lxc_path }}"
+      register: lxcpath_st
+    - ansible.builtin.fail:
+        msg: "lxcpath {{ lxc_path }} is not user writeable."
+      when: not lxcpath_st.stat.writeable
+
+# Assumes same lxcpath set among all hosts in current play
+- name: Determine directories along lxcpath without o:'x' access
+  block:
+    - ansible.builtin.stat:
+        path: "{{ ansible_loop['allitems'][: ansible_loop.index] | join('/') }}/"
+      loop: "{{ lxc_path | ansible.builtin.realpath | ansible.builtin.split('/') }}"
+      loop_control:
+        extended: true
+      register: lxcpath_parents_st
+    - ansible.builtin.set_fact:
+        _lxc_paths_no_x: "{{ lxcpath_parents_st.results | map(attribute='stat') | rejectattr('xoth') | map(attribute='path') | list }}"
+
+- name: Get user defined containers under lxcpath
+  block:
+    - ansible.builtin.command:
+        cmd: "lxc-ls --lxcpath {{ lxc_path }} --defined --line"
+      register: defined_containers_cmd
+      changed_when: false
+    - ansible.builtin.set_fact:
+        defined_containers: "{{ defined_containers_cmd.stdout_lines }}"
+
+- run_once: false
+  name: Get container state
+  ansible.builtin.set_fact:
+    is_undefined_container: "{{ (container_name not in defined_containers and state != 'absent') }}"
+    is_deprovisioned_container: "{{ (container_name in defined_containers and state == 'absent') }}"
+    container_name: "{{ container_name }}"
+  vars:
+    container_name: "{{ name }}"
+
+- ansible.builtin.set_fact:
+    undefined_containers: "{{ undefined_containers + undefined_container }}"
+  loop: "{{ ansible_play_hosts_all }}"
+  vars:
+    undefined_container: "{{ (hostvars[item]['is_undefined_container']) | ternary([host_container_name], []) }}"
+    host_container_name: "{{ hostvars[item]['container_name'] }}"
+    undefined_containers: []
+
+# container_idmaps needs to be defined regardless of whether there are
+# undefined containers because it is used for updating container host_mounts
+- name: Map reserved container root uids
+  become: true
+  become_user: root
+  block:
+    - name: Get all unprivileged containers, managed or otherwise, under lxcpath
+      ansible.builtin.shell:
+        cmd: >
+          lxc-ls --lxcpath {{ lxc_path }} --fancy --fancy-format NAME,UNPRIVILEGED | awk -F ' ' '$2=="true" {print $1}'
+      changed_when: false
+      register: _unpriv_containers
+    - ansible.builtin.shell:
+        cmd: >
+          lxc-info --lxcpath {{ lxc_path }} {{ item }} --no-humanize --config lxc.idmap | grep 'u 0' | cut --delimiter ' ' --fields 3
+      loop: "{{ _unpriv_containers.stdout_lines }}"
+      changed_when: false
+      register: container_root_uids_cmd
+    - ansible.builtin.set_fact:
+        container_idmaps: "{{ dict(_unpriv_containers.stdout_lines | zip(reserved_uids)) }}"
+      vars:
+        reserved_uids: "{{ container_root_uids_cmd.results | map(attribute='stdout') | list }}"
+
+- name: Get available container root uids for provisioned containers
+  when: undefined_containers != []
+  block:
+    - ansible.builtin.set_fact:
+        available_uids: "{{ uid_leases | ansible.builtin.difference(reserved_uids) }}"
+      vars:
+        reserved_uids: "{{ container_root_uids_cmd.results | map(attribute='stdout') | list }}"
+        uid_leases: "{{ range(idmap_start, idmap_end | int, 65536) | map('string') | list }}"
+        idmap_end: "{{ idmap_start + max_container_count * 65536 }}"
+    - name: Allow absent contaner root uids to be used
+      ansible.builtin.set_fact:
+        available_uids: "{{ available_uids + available_uid }}"
+      loop: "{{ ansible_play_hosts_all }}"
+      vars:
+        available_uid: "{{ (hostvars[item]['is_deprovisioned_container']) | ternary([container_idmaps[host_container_name]], []) }}"
+        host_container_name: "{{ hostvars[item]['container_name'] }}"
+    - name: Randomize allocated container root uids
+      ansible.builtin.set_fact:
+        available_uids: "{{ available_uids | shuffle }}"
+
+- name: Debug gathered facts
+  ansible.builtin.debug:
+    var: "{{ item }}"
+    verbosity: 2
+  loop:
+    - lxc_path
+    - _lxc_paths_no_x
+    - undefined_containers
+    - available_uids
