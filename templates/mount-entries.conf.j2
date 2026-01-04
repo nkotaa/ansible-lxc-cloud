@@ -1,3 +1,6 @@
-{% for mount in container_host_mounts %}
-lxc.mount.entry = {{ mount.path }} mnt/{{ mount.path | ansible.builtin.basename }} none bind,optional,create=dir{{ mount.ro | default(false) | ansible.builtin.ternary(',ro', '') }} 0 0
+{% for mount in ro_mounts %}
+lxc.mount.entry = {{ mount.path }} mnt/{{ mount.path | ansible.builtin.basename }} none bind,rbind,optional,create=dir,ro 0 0
+{% endfor %}
+{% for mount in rw_mounts %}
+lxc.mount.entry = {{ mount.path }} mnt/{{ mount.path | ansible.builtin.basename }} none bind,rbind,optional,create=dir 0 0
 {% endfor %}

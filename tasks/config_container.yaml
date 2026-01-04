@@ -26,23 +26,25 @@
   register: _net_intf
 
 - name: Configure host mounts
-  ansible.builtin.template:
-    src: mount-entries.conf.j2
-    dest: "{{ _conf_d.path }}/mount-entries.conf"
-  notify: Configure container access to host mounts
-  register: _mount_conf
-  changed_when: _mount_conf is changed and _mount_conf.size > 0
-
-- ansible.builtin.set_fact:
-    idmap_mounts: "{{ idmap_mounts + container_idmap_mounts }}"
-    idmap_ro_mounts: "{{ idmap_ro_mounts + container_idmap_ro_mounts }}"
+  block:
+    - ansible.builtin.template:
+        src: mount-entries.conf.j2
+        dest: "{{ _conf_d.path }}/mount-entries.conf"
+      register: _mount_conf
+      notify: Change ownership of rw mounts
+    - ansible.builtin.stat:
+        path: "{{ item.path }}"
+      loop: "{{ rw_mounts }}"
+      register: rw_mounts_st
+    - ansible.builtin.set_fact:
+        idmap_mounts_chown: "{{ idmap_mounts_chown | default([]) + container_idmap_mounts_chown }}"
+      vars:
+        container_idmap_mounts_chown: "{{ rw_mounts_chown | map('combine', {'idmap': container_idmap}) }}"
+        rw_mounts_chown: "{{ rw_mounts_st.results | map(attribute='stat') | rejectattr('uid', 'in', range(container_idmap | int, container_idmap | int + 65536)) | community.general.keep_keys(target='path') }}"
   vars:
-    idmap_mounts: []
-    idmap_ro_mounts: []
-    container_idmap_mounts: "{{ rw_mounts | map('combine', {'idmap': container_idmap}) }}"
-    container_idmap_ro_mounts: "{{ ro_mounts | map('combine', {'idmap': container_idmap}) }}"
     rw_mounts: "{{ container_host_mounts | ansible.builtin.difference(ro_mounts) }}"
     ro_mounts: "{{ container_host_mounts | selectattr('ro', 'defined') | selectattr('ro') }}"
+    container_host_mounts: "{{ host_mounts | default([]) }}"
 
 - name: Enforce storage limit
   become: true

@@ -1,26 +1,15 @@
 # Ansible documentation: "Handlers are executed in the order they are defined
 # in the handlers section, not in the order listed in the notify statement."
 
-- name: Change ownership of host mounts
+- name: Change ownership of rw mounts
   ansible.builtin.file:
     path: "{{ item.path }}"
     owner: "{{ item.idmap }}"
     group: "{{ item.idmap }}"
+    recurse: true
     state: directory
   become: true
-  loop: "{{ idmap_mounts }}"
-  listen: "Configure container access to host mounts"
-
-- name: Grant container root ACL read access to host mounts
-  ansible.posix.acl:
-    path: "{{ item.path }}"
-    etype: user
-    entity: "{{ item.idmap }}"
-    permissions: rX
-    recursive: true
-    state: present
-  loop: "{{ idmap_ro_mounts }}"
-  listen: "Configure container access to host mounts"
+  loop: "{{ idmap_mounts_chown }}"
 
 - name: Block waiting on cloud-init to complete
   ansible.builtin.command:
