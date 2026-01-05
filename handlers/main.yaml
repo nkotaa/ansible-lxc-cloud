@@ -11,7 +11,7 @@
   become: true
   loop: "{{ idmap_mounts_chown }}"
 
-- name: Block waiting on cloud-init to complete
+- listen: Block waiting on cloud-init to complete
   ansible.builtin.command:
     argv:
       - "lxc-{{ rootless | ansible.builtin.ternary('unpriv-', '') }}attach"
@@ -23,8 +23,17 @@
       - -c
       - cloud-init status --wait
   register: cloud_init_status
-  failed_when: "'status: done' not in cloud_init_status.stdout"
+  failed_when: "'status: error' in cloud_init_status.stdout"
+  ignore_errors: true
   loop: "{{ cloud_init_containers }}"
+
+- listen: Block waiting on cloud-init to complete
+  name: Save console log to local system
+  ansible.builtin.fetch:
+    src: "{{ item }}"
+    dest: "{{ playbook_dir }}/"
+    flat: true
+  loop: "{{ console_logs }}"
 
 - name: Get all restartable instances
   ansible.builtin.command:

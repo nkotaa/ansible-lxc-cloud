@@ -1,4 +1,5 @@
 lxc.console.logfile = {{ console_logfile }}
+lxc.console.size = 5MB
 {% for tag in _tags %}
 lxc.group = {{ tag }}
 {% if tag == "onboot" %}

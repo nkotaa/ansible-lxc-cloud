@@ -59,6 +59,8 @@
   rescue:
     - ansible.builtin.debug:
         msg: "Unable to set instance storage limit."
+- ansible.builtin.set_fact:
+    container_console_logfile: "{{ container_console_logfile | default(_conf_d.path + container_name + '-console.log') }}"
 
 - name: Container system behaviour
   ansible.builtin.template:
@@ -66,5 +68,5 @@
     dest: "{{ _conf_d.path }}/system.conf"
   register: _system_conf
   vars:
-    console_logfile: "{{ container_console_logfile | default(template_destpath + '.console-log') }}"
+    console_logfile: "{{ container_console_logfile }}"
     _tags: "{{ instance_tags | default([]) }}"

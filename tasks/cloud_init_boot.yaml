@@ -71,20 +71,18 @@
     instance_id: "{{ lookup('community.general.random_string', length=12, min_lower=8, min_numeric=4, ignore_similar_chars=true, upper=false, special=false) }}"
     instance_distro: "{{ instance.distro }}"
 
-- name: cloud-init boot
+- name: cloud-init boot with tty attached to foreground
   ansible.builtin.command:
     argv:
       - "lxc-{{ rootless | ansible.builtin.ternary('unpriv-', '') }}start"
       - --lxcpath
       - "{{ lxc_path }}"
       - "{{ container_name }}"
-  register: _lxc_start_res
-  changed_when:
-    - _lxc_start_res is changed
-    - new_container_res is changed
   notify: Block waiting on cloud-init to complete
 
 - ansible.builtin.set_fact:
     cloud_init_containers: "{{ cloud_init_containers + [container_name] }}"
+    console_logs: "{{ console_logs + [container_console_logfile] }}"
   vars:
     cloud_init_containers: []
+    console_logs: []
