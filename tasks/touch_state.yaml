@@ -15,8 +15,6 @@
         name: "{{ container_name }}"
         state: stopped
         lxc_path: "{{ lxc_path }}"
-      vars:
-        is_container_config_updated: "{{ (_net_intf is changed or _mount_conf is changed) }}"
       register: updated_container
     - when: updated_container is changed
       ansible.builtin.command:

@@ -60,6 +60,7 @@
     - ansible.builtin.debug:
         msg: "Unable to set instance storage limit."
 - ansible.builtin.set_fact:
+    is_container_config_updated: "{{ (_net_intf is changed or _mount_conf is changed) }}"
     container_console_logfile: "{{ container_console_logfile | default(_conf_d.path + container_name + '-console.log') }}"
 
 - name: Container system behaviour
