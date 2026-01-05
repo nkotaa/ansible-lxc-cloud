@@ -1,3 +1,5 @@
+lxc_user: "{{ ansible_facts['user_id'] }}"
+
 idmap_start: 100000
 max_container_count: 16
 

@@ -1,13 +1,10 @@
+# Needed when become_ since facts are initially gathered as remote_user
 - name: Get effective user name
-  block:
-    - ansible.builtin.setup:
-        gather_subset:
-          - "!all"
-          - "!min"
-          - user
-    # Required for lxc-start commands throughout parent task file
-    - ansible.builtin.set_fact:
-        rootless: "{{ (ansible_user_id != 'root') }}"
+  ansible.builtin.setup:
+    gather_subset:
+      - "!all"
+      - "!min"
+      - user
 
 - name: Get mounts information
   ansible.builtin.mount_facts:
