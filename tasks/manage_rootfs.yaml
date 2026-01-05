@@ -6,7 +6,7 @@
     mode: '0770'
 
 - name: Mock zfs backing store
-  when: is_zfs_rootless and is_undefined_container
+  when: is_zfs_rootless
   block:
     - name: Create rootfs dataset
       community.general.zfs:
@@ -19,45 +19,21 @@
         - zfs_rootfs_res.rc | default(0) != 0
         - '"filesystem successfully created" not in zfs_rootfs_res.stderr'
     - name: Create rootfs directory with user permissions before mounting
+      when: zfs_rootfs_res is changed
       ansible.builtin.file:
         path: "{{ rootfs_path }}"
         state: directory
-
-- name: Stop container
-  when: is_deprovisioned_container
-  community.general.lxc_container:
-    name: "{{ container_name }}"
-    state: stopped
-    lxc_path: "{{ lxc_path }}"
-
-- name: Manage mount for unprivileged user
-  when: is_zfs_rootless
-  ansible.builtin.command:
-    argv:
-      - zfs
-      - "{{ (state == 'absent') | ansible.builtin.ternary('un','') }}mount"
-      - "{{ bdev_root }}/{{ container_name }}"
-  register: _zfs_mount
-  changed_when:
-    - _zfs_mount.rc == 0
-  failed_when:
-    - _zfs_mount.rc != 0
-    - '"filesystem already mounted" not in _zfs_mount.stderr'
-    - '"not currently mounted" not in _zfs_mount.stderr'
-  become: true
-  become_user: root
-
-- name: Undefine container
-  when: state == "absent"
-  community.general.lxc_container:
-    name: "{{ container_name }}"
-    state: absent
-    lxc_path: "{{ lxc_path }}"
-  register: container_destroy
-
-- name: End play for deprovisioned hosts
-  when: container_destroy.lxc_container.state | default('present') == 'absent'
-  ansible.builtin.meta: end_host
+    - name: Mount rootfs dataset for unprivileged user
+      ansible.builtin.command:
+        cmd: "zfs mount {{ bdev_root }}/{{ container_name }}"
+      register: _zfs_mount
+      changed_when:
+        - _zfs_mount.rc == 0
+      failed_when:
+        - _zfs_mount.rc != 0
+        - '"filesystem already mounted" not in _zfs_mount.stderr'
+      become: true
+      become_user: root
 
 - block:
     - name: Set container idmap

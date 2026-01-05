@@ -3,9 +3,13 @@
     file: gather_runtime_facts.yaml
   run_once: true
 
-- name: End play for already absent hosts
-  when: state == "absent" and container_name not in defined_containers
-  ansible.builtin.meta: end_host
+- when: state == "absent"
+  ansible.builtin.import_tasks:
+    file: destroy_container.yaml
+
+- name: End role for absent containers
+  when: undefine_container.lxc_container.state | default('present') == 'absent'
+  ansible.builtin.meta: end_role
 
 - ansible.builtin.import_tasks:
     file: manage_rootfs.yaml

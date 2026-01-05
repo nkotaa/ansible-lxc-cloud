@@ -9,6 +9,9 @@
     - ansible.builtin.set_fact:
         rootless: "{{ (ansible_user_id != 'root') }}"
 
+- name: Get mounts information
+  ansible.builtin.mount_facts:
+
 - name: Fallback system config lxcpath
   when: lxc_path is not defined
   block:
