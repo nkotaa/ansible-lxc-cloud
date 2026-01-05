@@ -8,26 +8,16 @@
 
 - name: Get mounts information
   ansible.builtin.mount_facts:
+    include_aggregate_mounts: false
 
-- name: Fallback system config lxcpath
-  when: lxc_path is not defined
+- when: lxc_path is not defined
   block:
-    - ansible.builtin.command: lxc-config lxc.lxcpath
+    - name: Default to system config lxcpath
+      ansible.builtin.command: lxc-config lxc.lxcpath
       changed_when: false
       register: lxcpath_cmd
     - ansible.builtin.set_fact:
         lxc_path: "{{ lxcpath_cmd.stdout }}"
-    - ansible.builtin.debug:
-        msg: "Variable lxc_path unspecified, fallback to system config '{{ lxc_path }}'."
-
-- name: Confirm lxcpath is user writeable
-  block:
-    - ansible.builtin.stat:
-        path: "{{ lxc_path }}"
-      register: lxcpath_st
-    - ansible.builtin.fail:
-        msg: "lxcpath {{ lxc_path }} is not user writeable."
-      when: not lxcpath_st.stat.writeable
 
 # Assumes same lxcpath set among all hosts in current play
 - name: Determine directories along lxcpath without o:'x' access
@@ -41,9 +31,9 @@
     - ansible.builtin.set_fact:
         _lxc_paths_no_x: "{{ lxcpath_parents_st.results | map(attribute='stat') | rejectattr('xoth') | map(attribute='path') | list }}"
 
-- name: Get user defined containers under lxcpath
-  block:
-    - ansible.builtin.command:
+- block:
+    - name: Get user defined containers under lxcpath
+      ansible.builtin.command:
         cmd: "lxc-ls --lxcpath {{ lxc_path }} --defined --line"
       register: defined_containers_cmd
       changed_when: false
@@ -66,6 +56,16 @@
     undefined_container: "{{ (hostvars[item]['is_undefined_container']) | ternary([host_container_name], []) }}"
     host_container_name: "{{ hostvars[item]['container_name'] }}"
     undefined_containers: []
+
+- when: undefined_containers != []
+  block:
+    - name: Confirm lxcpath is user writeable
+      ansible.builtin.stat:
+        path: "{{ lxc_path }}"
+      register: lxcpath_st
+    - ansible.builtin.assert:
+        that: lxcpath_st.stat.writeable
+        fail_msg: "lxcpath {{ lxc_path }} is not user writeable."
 
 # container_idmaps needs to be defined regardless of whether there are
 # undefined containers because it is used for updating container host_mounts
