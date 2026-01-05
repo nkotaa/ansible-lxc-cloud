@@ -79,6 +79,23 @@
   poll: 0
   register: new_container
 
+# Change reflects in running containers without restart
+- name: Enforce storage limit
+  become: true
+  become_user: root
+  vars:
+    rootfs_size: "{{ size | default('1G') }}"
+  block:
+    - when: container_bdev == "zfs"
+      community.general.zfs:
+        name: "{{ bdev_root }}/{{ container_name }}"
+        state: present
+        extra_zfs_properties:
+          quota: "{{ rootfs_size }}"
+  rescue:
+    - ansible.builtin.debug:
+        msg: "Unable to set instance storage limit."
+
 - name: Grant container root ACL 'x' access to lxcpath
   throttle: 1
   ansible.posix.acl:

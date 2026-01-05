@@ -46,19 +46,6 @@
     ro_mounts: "{{ container_host_mounts | selectattr('ro', 'defined') | selectattr('ro') }}"
     container_host_mounts: "{{ host_mounts | default([]) }}"
 
-- name: Enforce storage limit
-  become: true
-  become_user: root
-  block:
-    - when: container_bdev == "zfs"
-      community.general.zfs:
-        name: "{{ bdev_root }}/{{ container_name }}"
-        state: present
-        extra_zfs_properties:
-          quota: "{{ instance_disk_size }}"
-  rescue:
-    - ansible.builtin.debug:
-        msg: "Unable to set instance storage limit."
 - ansible.builtin.set_fact:
     is_container_config_updated: "{{ (_net_intf is changed or _mount_conf is changed) }}"
     container_console_logfile: "{{ container_console_logfile | default(_conf_d.path + container_name + '-console.log') }}"
