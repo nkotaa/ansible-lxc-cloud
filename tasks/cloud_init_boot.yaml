@@ -32,7 +32,7 @@
   register: cloud_init_touch
 
 - name: Provide network config
-  when: is_undefined_container and instance.network_config is defined
+  when: is_undefined_container and template.network_config is defined
   ansible.builtin.command:
     argv:
       - lxc-execute
@@ -45,7 +45,7 @@
       - |
         cat << EOF > /etc/cloud/cloud.cfg.d/10-netconf.cfg
         network:
-        {{ instance.network_config | indent(2, first=True) }}
+        {{ template.network_config | indent(2, first=True) }}
         EOF
 
 - name: Seed NoCloud runtime data from controller
@@ -65,11 +65,11 @@
         echo '{{ _meta_data }}' > {{ seedfrom_path }}/meta-data &&
         echo '{{ _vendor_data }}' > {{ seedfrom_path }}/vendor-data
   vars:
-    _user_data: "{{ instance.user_data | default('#cloud-config') }}"
+    _user_data: "{{ template.user_data | default('#cloud-config') }}"
     _meta_data: "instance-id: {{ instance_id }}"
     _vendor_data: "{{ lookup('ansible.builtin.file', 'vendor-data-' + instance_distro) }}"
+    instance_distro: "{{ template.distro }}"
     instance_id: "{{ lookup('community.general.random_string', length=12, min_lower=8, min_numeric=4, ignore_similar_chars=true, upper=false, special=false) }}"
-    instance_distro: "{{ instance.distro }}"
 
 - name: cloud-init boot with tty attached to foreground
   ansible.builtin.command:

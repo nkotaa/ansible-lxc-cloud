@@ -72,8 +72,9 @@
     config: "{{ creation_config.dest }}"
   vars:
     _zfs_root: "{{ (is_zfs_rootless or container_bdev != 'zfs') | ansible.builtin.ternary(omit, bdev_root) }}"
-    instance_release: "{{ instance.release | default(default_release[instance_distro]) }}"
-    instance_arch: "{{ instance.arch | default('amd64') }}"
+    instance_distro: "{{ template.distro }}"
+    instance_release: "{{ template.release | default(default_release[instance_distro]) }}"
+    instance_arch: "{{ template.arch | default('amd64') }}"
   async: 180
   poll: 0
   register: new_container

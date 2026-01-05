@@ -15,6 +15,8 @@
     file: manage_rootfs.yaml
   vars:
     rootfs_path: "{{ container_path }}/rootfs"
+    container_bdev: "{{ bdev.type }}"
+    bdev_root: "{{ bdev.root }}"
     is_zfs_rootless: "{{ (container_bdev == 'zfs' and rootless) }}"
 
 - name: Update container resources and behaviour
