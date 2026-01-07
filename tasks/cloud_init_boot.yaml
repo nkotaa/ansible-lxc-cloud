@@ -32,7 +32,7 @@
   register: cloud_init_touch
 
 - name: Provide network config
-  when: is_undefined_container and template.network_config is defined
+  when: is_undefined_container and network_config is defined
   ansible.builtin.command:
     argv:
       - lxc-execute
@@ -45,7 +45,7 @@
       - |
         cat << EOF > /etc/cloud/cloud.cfg.d/10-netconf.cfg
         network:
-        {{ template.network_config | indent(2, first=True) }}
+        {{ network_config | indent(2, first=True) }}
         EOF
 
 - name: Seed NoCloud runtime data from controller

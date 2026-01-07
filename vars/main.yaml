@@ -1,3 +1,5 @@
 rootless: "{{ (ansible_facts['user_id'] != 'root') }}"
 
+lxc_path: "{{ path }}"
+
 container_path: "{{ lxc_path }}/{{ container_name }}"

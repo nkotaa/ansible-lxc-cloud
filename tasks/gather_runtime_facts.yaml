@@ -10,7 +10,7 @@
   ansible.builtin.mount_facts:
     include_aggregate_mounts: false
 
-- when: lxc_path is not defined
+- when: path is not defined
   block:
     - name: Default to system config lxcpath
       ansible.builtin.command: lxc-config lxc.lxcpath

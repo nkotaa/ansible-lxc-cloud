@@ -3,8 +3,6 @@ lxc_user: "{{ ansible_facts['user_id'] }}"
 idmap_start: 100000
 max_container_count: 16
 
-container_bdev: dir
-
 nocloud_seedfrom: "file:///etc/cloud/cloud.cfg.d/nocloud-seed/"
 
 default_release:
