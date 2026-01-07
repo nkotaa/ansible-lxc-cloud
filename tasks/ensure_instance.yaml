@@ -26,6 +26,15 @@
   vars:
     container_config: "{{ container_path }}/config"
 
+- name: Wait for container to be defined
+  when: new_container.ansible_job_id is defined
+  ansible.builtin.async_status:
+    jid: "{{ new_container.ansible_job_id }}"
+  register: new_container_res
+  until: new_container_res is finished
+  retries: 5
+  delay: 15
+
 - when: is_cloud_init_boot
   ansible.builtin.import_tasks:
     file: cloud_init_boot.yaml

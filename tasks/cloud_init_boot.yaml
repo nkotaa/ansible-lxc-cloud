@@ -1,16 +1,5 @@
 # Note lxc-execute triggers container hooks as well
 
-# A container's first boot is always a cloud-init boot, but a cloud-init boot
-# need not be a container's first boot
-- when: new_container.ansible_job_id is defined
-  name: Wait for container to be defined
-  ansible.builtin.async_status:
-    jid: "{{ new_container.ansible_job_id }}"
-  register: new_container_res
-  until: new_container_res is finished
-  retries: 5
-  delay: 15
-
 - name: Modify base image for cloud-init support
   ansible.builtin.command:
     argv:
