@@ -1,0 +1,10 @@
+{# dsmode kernel command line parameter documentation:
+https://github.com/canonical/cloud-init/blob/25.1.x/cloudinit/sources/DataSourceNoCloud.py#L309
+dsmode net needed for network interfaces to be up during cloud boothook
+lxc.init.cmd = /sbin/init ds=nocloud;dsmode=net;seedfrom={{ nocloud_seedfrom }}
+#}
+{% if is_nocloud_managed %}
+lxc.hook.mount = /usr/share/lxc/hooks/nocloud-managed.sh
+lxc.environment = NOCLOUD_USER_DATA_B64={{ _user_data | ansible.builtin.b64encode }}
+lxc.environment = NOCLOUD_VENDOR_DATA_B64={{ _vendor_data | ansible.builtin.b64encode }}
+{% endif %}

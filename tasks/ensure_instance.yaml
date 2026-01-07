@@ -30,10 +30,7 @@
   ansible.builtin.import_tasks:
     file: cloud_init_boot.yaml
   vars:
-    is_cloud_init_boot: "{{ is_undefined_container }}"
-    cloud_init_boot_conf: "{{ _cloud_init_boot_conf.dest }}"
-    is_nocloud_managed: "{{ (nocloud_seedfrom | ansible.builtin.urlsplit('scheme')) == 'file' }}"
-    seedfrom_path: "{{ nocloud_seedfrom | ansible.builtin.urlsplit('path') }}"
+    is_cloud_init_boot: "{{ _nocloud_conf is changed }}"
 
 - name: Ensure instance state
   ansible.builtin.import_tasks:

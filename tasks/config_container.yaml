@@ -58,3 +58,15 @@
   vars:
     console_logfile: "{{ container_console_logfile }}"
     _tags: "{{ instance_tags | default([]) }}"
+
+# Templates an empty file if not nocloud_managed
+- name: Seed cloud-init instance customizations
+  ansible.builtin.template:
+    src: nocloud-config.conf.j2
+    dest: "{{ _conf_d.path }}/nocloud-config.conf"
+  register: _nocloud_conf
+  vars:
+    is_nocloud_managed: "{{ (nocloud_seedfrom | ansible.builtin.urlsplit('scheme')) == 'file' }}"
+    _user_data: "{{ user_data | default('#cloud-config') }}"
+    _vendor_data: "{{ lookup('ansible.builtin.file', 'vendor-data-' + instance_distro) }}"
+    instance_distro: "{{ template.distro }}"
