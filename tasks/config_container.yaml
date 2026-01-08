@@ -21,8 +21,9 @@
   vars:
     _net_type: "{{ item.type | default('veth') }}"
     _net_link: "{{ item.link }}"
-    _net_ipv4_address: "{{ item.ipv4_address | default(omit) }}"
-    _net_ipv4_gateway: "{{ item.ipv4_gateway | default(omit) }}"
+    _net_hwaddr: "{{ item.hwaddr | default(None) }}"
+    _net_ipv4_address: "{{ item.ipv4_address | default(None) }}"
+    _net_ipv4_gateway: "{{ item.ipv4_gateway | default(None) }}"
   register: _net_intf
 
 - name: Configure host mounts
