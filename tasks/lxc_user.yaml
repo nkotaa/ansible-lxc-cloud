@@ -39,7 +39,6 @@
   loop: "{{ lxc_usernet_bridges | default([]) }}"
 
 - name: Delegate subordinate UID and GID ranges to lxc user
-  become: true
   ansible.builtin.lineinfile:
     path: "/etc/{{ item }}"
     regexp: "^{{ lxc_user }}"

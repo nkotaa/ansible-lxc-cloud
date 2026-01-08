@@ -1,5 +1,4 @@
 - name: Install module and role requirements
-  become: true
   ansible.builtin.apt:
     name:
       - lxc
@@ -7,11 +6,9 @@
       - acl
 
 - ansible.builtin.import_tasks: lxc_user.yaml
-  become: true
 
 # Note trailing '/' of source path to set mode of copied files correctly
 - name: Copy in container hooks
-  become: true
   ansible.builtin.copy:
     src: hooks/
     dest: /usr/share/lxc/hooks/
