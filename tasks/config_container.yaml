@@ -66,6 +66,9 @@
     src: nocloud-config.conf.j2
     dest: "{{ _conf_d.path }}/nocloud-config.conf"
   register: _nocloud_conf
+  changed_when:
+    - _nocloud_conf is changed
+    - _nocloud_conf.size > 0
   vars:
     is_nocloud_managed: "{{ (nocloud_seedfrom | ansible.builtin.urlsplit('scheme')) == 'file' }}"
     _user_data: "{{ user_data | default('#cloud-config') }}"

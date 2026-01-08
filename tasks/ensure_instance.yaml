@@ -39,7 +39,7 @@
   ansible.builtin.import_tasks:
     file: cloud_init_boot.yaml
   vars:
-    is_cloud_init_boot: "{{ _nocloud_conf is changed }}"
+    is_cloud_init_boot: "{{ is_undefined_container or _nocloud_conf is changed }}"
 
 - name: Ensure instance state
   ansible.builtin.import_tasks:
