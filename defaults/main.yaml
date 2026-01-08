@@ -1,4 +1,4 @@
-lxc_user: "{{ ansible_facts['user_id'] }}"
+lxc_user: "{{ ansible_user }}"
 
 idmap_start: 100000
 max_container_count: 16
