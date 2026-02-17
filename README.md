@@ -55,6 +55,7 @@ Then add a group to your inventory and provision containers with:
 | `template` | A dictionary that passes the following keys to lxc-create(1) as corresponding arguments to the "download" template: `distro`, `release`, `arch`. |
 | `bdev` | A dictionary that passes the following keys to lxc-create(1) as corresponding arguments to `--bdev`: `type`, `root`. |
 | `size` | Size of container rootfs, if supported by `bdev.type`. |
+| `memory` | Container memory limit in bytes, as would be passed to the cgroup memory controller [memory.high](https://github.com/torvalds/linux/blob/master/Documentation/admin-guide/cgroup-v2.rst#memory-interface-files) interface file. |
 | `networks` | A list of dictionaries whose keys are passed to the container configuration file: `type`, `link`, `hwaddr`. These define how the network is virtualized in the container, as explained under the NETWORK section of lxc.container.conf(5). |
 | `host_mounts` | A list of dictionaries with keys `path`, `ro`. The former defines the host-side path to mount in the container while the latter controls whether this mount is read only. |
 | `user_data` | The [user-data](https://cloudinit.readthedocs.io/en/latest/explanation/format.html) to apply to a newly booted instance. |
