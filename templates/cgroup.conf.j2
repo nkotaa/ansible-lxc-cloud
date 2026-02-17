@@ -1,0 +1,4 @@
+lxc.cgroup2.cpu.weight = 100
+lxc.cgroup2.memory.max = {{ instance_memory }}
+# Compare against pids.peak, pids.events.max to see if overly conservative
+lxc.cgroup2.pids.max = 1024

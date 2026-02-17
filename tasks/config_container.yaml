@@ -47,8 +47,16 @@
     ro_mounts: "{{ container_host_mounts | selectattr('ro', 'defined') | selectattr('ro') }}"
     container_host_mounts: "{{ host_mounts | default([]) }}"
 
+- name: Limit container resources using cgroups
+  ansible.builtin.template:
+    src: cgroup.conf.j2
+    dest: "{{ _conf_d.path }}/cgroup.conf"
+  vars:
+    instance_memory: "{{ memory | default('2G') }}"
+  register: _cgroup_conf
+
 - ansible.builtin.set_fact:
-    is_container_config_updated: "{{ (_net_intf is changed or _mount_conf is changed) }}"
+    is_container_config_updated: "{{ (_net_intf is changed or _mount_conf is changed or _cgroup_conf is changed) }}"
     container_console_logfile: "{{ container_console_logfile | default(_conf_d.path + container_name + '-console.log') }}"
 
 - name: Container system behaviour
