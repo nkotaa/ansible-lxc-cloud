@@ -46,3 +46,10 @@
   loop:
     - subuid
     - subgid
+
+- name: Allow delegation of all supported cgroup controllers for user
+  ansible.builtin.copy:
+    src: delegate.conf
+    dest: "/etc/systemd/system/user@{{ lxc_user_res.uid }}.service.d/"
+    mode: "0755"
+  register: user_manager_service
