@@ -86,7 +86,7 @@ Then add a group to your inventory and provision containers with:
 
 - name: Provision lxc hosts
   hosts: lxc
-  ignore_unreachable: true
+  gather_facts: false
   tasks:
     - ansible.builtin.import_role:
         name: lxc_cloud
@@ -102,6 +102,7 @@ Then add a group to your inventory and provision containers with:
           type: zfs
           root: "pool/lxc"
         size: 5G
+        memory: 1G
         networks:
           - link: br-lan
             hwaddr: '00:11:22:33:44:55'
