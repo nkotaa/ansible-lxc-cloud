@@ -5,36 +5,6 @@
     state: directory
     mode: '0770'
 
-- name: Mock zfs backing store
-  when: is_zfs_rootless
-  block:
-    - name: Create rootfs dataset
-      community.general.zfs:
-        name: "{{ bdev_root }}/{{ container_name }}"
-        state: present
-        extra_zfs_properties:
-          mountpoint: "{{ rootfs_path }}"
-      register: zfs_rootfs_res
-      failed_when:
-        - zfs_rootfs_res.rc | default(0) != 0
-        - '"filesystem successfully created" not in zfs_rootfs_res.stderr'
-    - name: Create rootfs directory with user permissions before mounting
-      when: zfs_rootfs_res is changed
-      ansible.builtin.file:
-        path: "{{ rootfs_path }}"
-        state: directory
-    - name: Mount rootfs dataset for unprivileged user
-      ansible.builtin.command:
-        cmd: "zfs mount {{ bdev_root }}/{{ container_name }}"
-      register: _zfs_mount
-      changed_when:
-        - _zfs_mount.rc == 0
-      failed_when:
-        - _zfs_mount.rc != 0
-        - '"filesystem already mounted" not in _zfs_mount.stderr'
-      become: true
-      become_user: root
-
 - block:
     - name: Set container idmap
       ansible.builtin.set_fact:
@@ -64,14 +34,14 @@
   community.general.lxc_container:
     name: "{{ container_name }}"
     state: stopped
-    backing_store: "{{ (is_zfs_rootless) | ansible.builtin.ternary('dir', container_bdev) }}"
+    backing_store: "{{ container_bdev }}"
     zfs_root: "{{ _zfs_root }}"
     lxc_path: "{{ lxc_path }}"
     template: download
     template_options: "--dist {{ instance_distro }} --release {{ instance_release }} --arch {{ instance_arch }} --variant cloud"
     config: "{{ creation_config.dest }}"
   vars:
-    _zfs_root: "{{ (is_zfs_rootless or container_bdev != 'zfs') | ansible.builtin.ternary(omit, bdev_root) }}"
+    _zfs_root: "{{ (container_bdev == 'zfs') | ansible.builtin.ternary(bdev_root, omit) }}"
     instance_distro: "{{ template.distro }}"
     instance_release: "{{ template.release | default(default_release[instance_distro]) }}"
     instance_arch: "{{ template.arch | default('amd64') }}"

@@ -11,15 +11,6 @@
     - _lxc_stop_res.rc != 0
     - '"{{ container_name }} is not running" not in _lxc_stop_res.stderr'
 
-- name: Unmount mock zfs bdev
-  when: _lxc_stop_res is changed and rootless and is_zfs_rootfs
-  ansible.builtin.command:
-    cmd: "zfs unmount {{ container_path }}/rootfs"
-  become: true
-  become_user: root
-  vars:
-    is_zfs_rootfs: "{{ ansible_facts['mount_points'][container_path + '/rootfs']['fstype'] | default('') == 'zfs' }}"
-
 - name: Undefine container
   throttle: 1
   community.general.lxc_container:

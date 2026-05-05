@@ -6,10 +6,6 @@
       - "!min"
       - user
 
-- name: Get mounts information
-  ansible.builtin.mount_facts:
-    include_aggregate_mounts: false
-
 - when: path is not defined
   block:
     - name: Default to system config lxcpath

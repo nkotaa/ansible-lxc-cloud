@@ -16,8 +16,7 @@
   vars:
     rootfs_path: "{{ container_path }}/rootfs"
     container_bdev: "{{ bdev.type | default('dir') }}"
-    bdev_root: "{{ bdev.root }}"
-    is_zfs_rootless: "{{ (container_bdev == 'zfs' and rootless) }}"
+    bdev_root: "{{ bdev.root | default(omit) }}"
 
 - name: Update container resources and behaviour
   when: state == "updated" or is_undefined_container
