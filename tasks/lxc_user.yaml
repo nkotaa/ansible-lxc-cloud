@@ -26,8 +26,14 @@
     cmd: "loginctl enable-linger {{ lxc_user }}"
   changed_when: false
 
-# TODO
-#  community.general.zfs_delegate_admin:
+- name: Delegate ZFS administration permission to unprivileged user
+  when: item.type == "zfs"
+  community.general.zfs_delegate_admin:
+    name: "{{ item.root }}"
+    users: "{{ lxc_user }}"
+    permissions: quota,create,destroy,mount,snapshot
+    state: present
+  loop: "{{ lxc_backingstore }}"
 
 - name: Permit unprivileged user to create veth interfaces on host
   when: lxc_user_res.name != "root"

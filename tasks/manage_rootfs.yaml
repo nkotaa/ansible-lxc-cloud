@@ -51,8 +51,6 @@
 
 # Change reflects in running containers without restart
 - name: Enforce storage limit
-  become: true
-  become_user: root
   vars:
     rootfs_size: "{{ size | default('1G') }}"
   block:
