@@ -66,10 +66,8 @@
 # container_idmaps needs to be defined regardless of whether there are
 # undefined containers because it is used for updating container host_mounts
 - name: Map reserved container root uids
-  become: true
-  become_user: root
   block:
-    - name: Get all unprivileged containers, managed or otherwise, under lxcpath
+    - name: Get all user unprivileged containers under lxcpath
       ansible.builtin.shell:
         cmd: >
           lxc-ls --lxcpath {{ lxc_path }} --fancy --fancy-format NAME,UNPRIVILEGED | awk -F ' ' '$2=="true" {print $1}'

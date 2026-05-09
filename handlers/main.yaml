@@ -1,14 +1,19 @@
 # Ansible documentation: "Handlers are executed in the order they are defined
 # in the handlers section, not in the order listed in the notify statement."
 
-- name: Change ownership of rw mounts
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    owner: "{{ item.idmap }}"
-    group: "{{ item.idmap }}"
-    recurse: true
-    state: directory
-  become: true
+- listen: Change ownership of rw mounts
+  ansible.builtin.command:
+    argv:
+      - unshare
+      - --user
+      - --map-auto
+      - --map-root-user
+      - /bin/sh
+      - -c
+      - |
+        chown --recursive {{ _rw_mount_uid }}:{{ _rw_mount_uid }} {{ item.path }}
+  vars:
+    _rw_mount_uid: "{{ item.idmap | int - idmap_start + 1 }}"
   loop: "{{ idmap_mounts_chown }}"
 
 - listen: Block waiting on cloud-init to complete
