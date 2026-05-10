@@ -1,19 +1,20 @@
 # Needed when become_ since facts are initially gathered as remote_user
-- name: Get effective user name
-  ansible.builtin.setup:
-    gather_subset:
-      - "!all"
-      - "!min"
-      - user
-
-- when: path is not defined
+- name: Get effective user name and local facts
   block:
-    - name: Default to system config lxcpath
-      ansible.builtin.command: lxc-config lxc.lxcpath
-      changed_when: false
-      register: lxcpath_cmd
-    - ansible.builtin.set_fact:
-        lxc_path: "{{ lxcpath_cmd.stdout }}"
+    - ansible.builtin.setup:
+        gather_subset:
+          - "!all"
+          - "!min"
+          - user
+          - local
+    - name: Set user local facts
+      ansible.builtin.set_fact:
+        lxc_path: "{{ user_facts['lxc_path'] }}"
+        max_container_count: "{{ user_facts['max_container_count'] }}"
+        idmap_start: "{{ user_facts['idmap_start'] }}"
+        cpuset_cpus: "{{ user_facts['cpuset_cpus'] }}"
+      vars:
+        user_facts: "{{ ansible_facts['ansible_local'][role_name + '_' + ansible_facts['user_id']] }}"
 
 # Assumes same lxcpath set among all hosts in current play
 - name: Determine directories along lxcpath without o:'x' access
