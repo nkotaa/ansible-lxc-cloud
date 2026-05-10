@@ -1,4 +1,4 @@
-lxc_user: "{{ ansible_user }}"
+lxc_user: "{{ ansible_facts['user_id'] }}"
 max_container_count: 16
 
 nocloud_seedfrom: "file:///etc/cloud/cloud.cfg.d/nocloud-seed/"
