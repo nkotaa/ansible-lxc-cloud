@@ -53,6 +53,12 @@
     dest: "{{ _conf_d.path }}/cgroup.conf"
   vars:
     instance_memory: "{{ memory | default('2G') }}"
+    instance_cpus: "{{ cpuset | default(allocated_cpuset) }}"
+    allocated_cpuset: >-
+      {{ (cpuset_cpus + cpuset_cpus)[idx|int : idx|int + instance_cpu_count|int]
+      | map('string') | join(',') }}
+    idx: "{{ cpuset_cpus | length | random(seed=container_name) }}"
+    instance_cpu_count: "{{ cpu_count | default(2) }}"
   register: _cgroup_conf
 
 - ansible.builtin.set_fact:
