@@ -1,0 +1,41 @@
+- name: Create directory for custom facts
+  ansible.builtin.file:
+    path: /etc/ansible/facts.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- when: lxc_path is not defined
+  block:
+    - name: Default to system config lxcpath
+      become_user: "{{ lxc_user }}"
+      ansible.builtin.command: lxc-config lxc.lxcpath
+      changed_when: false
+      register: lxcpath_cmd
+    - ansible.builtin.set_fact:
+        lxc_path: "{{ lxcpath_cmd.stdout }}"
+
+- name: Get container resource limits
+  block:
+    - name: Get allowed CPUs to be used by containers
+      ansible.builtin.command:
+        cmd: "cat {{ cgroup_path }}/cpuset.cpus.effective"
+      register: _cpuset_cmd
+      changed_when: false
+    - ansible.builtin.set_fact:
+        cpuset_cpus: "{{ cpuset_cpus | default([]) + range(cpu_range[0], cpu_range[1] | default(cpu_range[0]) + 1) | list }}"
+      loop: "{{ cpu_sets }}"
+      vars:
+        cpu_sets: "{{ _cpuset_cmd.stdout | split(',') }}"
+        cpu_range: "{{ item | split('-') | map('int') | list }}"
+  vars:
+    cgroup_path: "/sys/fs/cgroup/user.slice/user-{{ lxc_user_res.uid }}.slice/user@{{ lxc_user_res.uid }}.service"
+
+- name: Install user private facts
+  ansible.builtin.template:
+    src: lxc_cloud.fact.j2
+    dest: "/etc/ansible/facts.d/{{ role_name }}_{{ lxc_user }}.fact"
+    owner: root
+    group: "{{ lxc_user }}"
+    mode: '0640'

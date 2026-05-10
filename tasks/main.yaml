@@ -13,3 +13,5 @@
     src: hooks/
     dest: /usr/share/lxc/hooks/
     mode: '0755'
+
+- ansible.builtin.import_tasks: install_local_facts.yaml
