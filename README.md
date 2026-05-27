@@ -56,6 +56,7 @@ Then add a group to your inventory and provision containers with:
 | `bdev` | A dictionary that passes the following keys to lxc-create(1) as corresponding arguments to `--bdev`: `type`, `root`. |
 | `size` | Size of container rootfs, if supported by `bdev.type`. |
 | `memory` | Container memory limit in bytes, as would be passed to the cgroup memory controller [memory.high](https://github.com/torvalds/linux/blob/master/Documentation/admin-guide/cgroup-v2.rst#memory-interface-files) interface file. |
+| `cpu_count` | Number of CPUs allocated to container, as granted by the cgroup cpuset controller [cpuset.cpus](https://github.com/torvalds/linux/blob/master/Documentation/admin-guide/cgroup-v2.rst#cpuset-interface-files) interface file. Actual list of CPUs is a randomly assigned subset of available parent cgroup CPUs. |
 | `networks` | A list of dictionaries whose keys are passed to the container configuration file: `type`, `link`, `hwaddr`. These define how the network is virtualized in the container, as explained under the NETWORK section of lxc.container.conf(5). |
 | `host_mounts` | A list of dictionaries with keys `path`, `ro`. The former defines the host-side path to mount in the container while the latter controls whether this mount is read only. |
 | `user_data` | The [user-data](https://cloudinit.readthedocs.io/en/latest/explanation/format.html) to apply to a newly booted instance. |
@@ -99,10 +100,10 @@ Then add a group to your inventory and provision containers with:
           distro: "{{ distro }}"
           release: "{{ release }}"
         bdev:
-          type: zfs
-          root: "pool/lxc"
+          type: dir
         size: 5G
         memory: 1G
+        cpu_count: 2
         networks:
           - link: br-lan
             hwaddr: '00:11:22:33:44:55'
