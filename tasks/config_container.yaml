@@ -41,7 +41,7 @@
         idmap_mounts_chown: "{{ idmap_mounts_chown | default([]) + container_idmap_mounts_chown }}"
       vars:
         container_idmap_mounts_chown: "{{ rw_mounts_chown | map('combine', {'idmap': container_idmap}) }}"
-        rw_mounts_chown: "{{ rw_mounts_st.results | map(attribute='stat') | rejectattr('uid', 'in', range(container_idmap | int, container_idmap | int + 65536)) | community.general.keep_keys(target='path') }}"
+        rw_mounts_chown: "{{ rw_mounts_st.results | map(attribute='stat') | selectattr('exists') | rejectattr('uid', 'in', range(container_idmap | int, container_idmap | int + 65536)) | community.general.keep_keys(target='path') }}"
   vars:
     rw_mounts: "{{ container_host_mounts | ansible.builtin.difference(ro_mounts) }}"
     ro_mounts: "{{ container_host_mounts | selectattr('ro', 'defined') | selectattr('ro') }}"
